@@ -1,66 +1,48 @@
 import streamlit as st
 from PIL import Image
 import os
-import torch
-from diffusers import StableDiffusionPipeline
+import io
+import replicate
+from rembg import remove
 
 # -------------------------------------------------
 # Page config
 # -------------------------------------------------
-st.set_page_config(
-    page_title="Virtual Clothing Try-On",
-    layout="wide"
-)
-
+st.set_page_config(page_title="Virtual Try-On", layout="wide")
 st.title("👗 Virtual Clothing Try-On")
-st.write("Upload a clothing image and preview it on a stock model.")
 
 # -------------------------------------------------
-# Paths (Streamlit Cloud safe)
+# Paths
 # -------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ASSETS_DIR = os.path.join(BASE_DIR, "assets")
-STOCK_MODEL_PATH = os.path.join(ASSETS_DIR, "stock_model.jpg")
+MODELS_DIR = os.path.join(BASE_DIR, "assets", "models")
 
 # -------------------------------------------------
-# Sidebar
+# Load stock models
 # -------------------------------------------------
-st.sidebar.header("Options")
-use_ai = st.sidebar.checkbox(
-    "Generate AI Try-On (slow, CPU-only)",
-    value=False,
-    help="Enable AI image generation (very slow without GPU)"
+stock_models = {
+    f.replace(".jpg", ""): os.path.join(MODELS_DIR, f)
+    for f in os.listdir(MODELS_DIR)
+    if f.endswith(".jpg")
+}
+
+model_choice = st.selectbox(
+    "Choose a model",
+    options=list(stock_models.keys())
 )
 
+model_img = Image.open(stock_models[model_choice]).convert("RGB")
+
 # -------------------------------------------------
-# File upload
+# Upload clothing
 # -------------------------------------------------
 clothing_file = st.file_uploader(
     "Upload Clothing Image",
     type=["png", "jpg", "jpeg"]
 )
 
-model_file = st.file_uploader(
-    "Upload Model Image (optional)",
-    type=["png", "jpg", "jpeg"]
-)
-
 # -------------------------------------------------
-# Load model image
-# -------------------------------------------------
-if model_file:
-    model_img = Image.open(model_file).convert("RGB")
-else:
-    if not os.path.exists(STOCK_MODEL_PATH):
-        st.error(
-            "❌ stock_model.jpg not found.\n\n"
-            "Make sure it exists at: assets/stock_model.jpg"
-        )
-        st.stop()
-    model_img = Image.open(STOCK_MODEL_PATH).convert("RGB")
-
-# -------------------------------------------------
-# Display images
+# Display inputs
 # -------------------------------------------------
 col1, col2 = st.columns(2)
 
@@ -74,8 +56,31 @@ with col2:
         clothing_img = Image.open(clothing_file).convert("RGBA")
         st.image(clothing_img, use_container_width=True)
     else:
-        st.info("Upload a clothing image to continue.")
+        st.info("Upload clothing to continue")
 
 # -------------------------------------------------
-# Generate result
-# -----------------------------------------------
+# Generate Try-On
+# -------------------------------------------------
+if clothing_file and st.button("Generate Try-On"):
+    with st.spinner("Segmenting clothing..."):
+        segmented = remove(clothing_img)
+
+        buf = io.BytesIO()
+        segmented.save(buf, format="PNG")
+        buf.seek(0)
+
+    with st.spinner("Running TryOnDiffusion..."):
+        output = replicate.run(
+            "yisol/tryondiffusion",
+            input={
+                "model_image": model_img,
+                "garment_image": buf,
+                "steps": 25,
+                "guidance_scale": 2.5
+            }
+        )
+
+        result_url = output[0]
+
+    st.subheader("Result")
+    st.image(result_url, use_container_width=True)
