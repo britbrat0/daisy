@@ -6,3 +6,6 @@ transformers
 Pillow
 accelerate
 safetensors
+python-dotenv
+replicate
+rembg
