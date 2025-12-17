@@ -1,10 +1,13 @@
 # Virtual Try-On App
 
-This is a Streamlit prototype app for virtual clothing try-on. Upload a clothing image and see it on a stock model.
+Streamlit app using TryOnDiffusion for AI virtual clothing try-on.
 
-## Setup
+## Features
+- Stock models
+- Clothing segmentation
+- Diffusion-based try-on
 
-1. Clone the repo:
+## Run locally
 ```bash
-git clone https://github.com/yourusername/virtual-tryon-app.git
-cd virtual-tryon-app
+pip install -r requirements.txt
+streamlit run app.py
