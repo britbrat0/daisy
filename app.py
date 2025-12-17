@@ -3,7 +3,6 @@ from PIL import Image
 import os
 import io
 import replicate
-from rembg import remove
 
 # -------------------------------------------------
 # Page config
