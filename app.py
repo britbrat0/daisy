@@ -1,7 +1,6 @@
 import streamlit as st
 from PIL import Image
 import os
-import io
 import replicate
 
 # -------------------------------------------------
@@ -9,6 +8,8 @@ import replicate
 # -------------------------------------------------
 st.set_page_config(page_title="Virtual Try-On", layout="wide")
 st.title("👗 Virtual Clothing Try-On")
+
+st.write("Upload a clothing image and see it on a stock model.")
 
 # -------------------------------------------------
 # Paths
@@ -19,18 +20,22 @@ MODELS_DIR = os.path.join(BASE_DIR, "assets", "models")
 # -------------------------------------------------
 # Load stock models
 # -------------------------------------------------
-stock_models = {
-    f.replace(".jpg", ""): os.path.join(MODELS_DIR, f)
-    for f in os.listdir(MODELS_DIR)
-    if f.endswith(".jpg")
-}
+if not os.path.exists(MODELS_DIR):
+    st.error("❌ assets/models folder not found.")
+    st.stop()
 
-model_choice = st.selectbox(
-    "Choose a model",
-    options=list(stock_models.keys())
-)
+model_files = [
+    f for f in os.listdir(MODELS_DIR)
+    if f.lower().endswith((".jpg", ".jpeg", ".png"))
+]
 
-model_img = Image.open(stock_models[model_choice]).convert("RGB")
+if not model_files:
+    st.error("❌ No stock model images found in assets/models/")
+    st.stop()
+
+model_choice = st.selectbox("Choose a model", model_files)
+model_path = os.path.join(MODELS_DIR, model_choice)
+model_img = Image.open(model_path).convert("RGB")
 
 # -------------------------------------------------
 # Upload clothing
@@ -52,34 +57,38 @@ with col1:
 with col2:
     st.subheader("Clothing")
     if clothing_file:
-        clothing_img = Image.open(clothing_file).convert("RGBA")
+        clothing_img = Image.open(clothing_file).convert("RGB")
         st.image(clothing_img, use_container_width=True)
     else:
-        st.info("Upload clothing to continue")
+        st.info("Upload a clothing image to continue")
 
 # -------------------------------------------------
 # Generate Try-On
 # -------------------------------------------------
 if clothing_file and st.button("Generate Try-On"):
-    with st.spinner("Segmenting clothing..."):
-        segmented = remove(clothing_img)
+    with st.spinner("Running TryOnDiffusion (this may take ~30–60 seconds)..."):
+        try:
+            output = replicate.run(
+                "yisol/tryondiffusion",
+                input={
+                    "model_image": model_img,
+                    "garment_image": clothing_img,
+                    "steps": 25,
+                    "guidance_scale": 2.5
+                }
+            )
 
-        buf = io.BytesIO()
-        segmented.save(buf, format="PNG")
-        buf.seek(0)
+            result_url = output[0]
 
-    with st.spinner("Running TryOnDiffusion..."):
-        output = replicate.run(
-            "yisol/tryondiffusion",
-            input={
-                "model_image": model_img,
-                "garment_image": buf,
-                "steps": 25,
-                "guidance_scale": 2.5
-            }
-        )
+            st.subheader("Result")
+            st.image(result_url, use_container_width=True)
 
-        result_url = output[0]
+        except Exception as e:
+            st.error("❌ Try-on generation failed.")
+            st.exception(e)
 
-    st.subheader("Result")
-    st.image(result_url, use_container_width=True)
+# -------------------------------------------------
+# Footer
+# -------------------------------------------------
+st.markdown("---")
+st.caption("Powered by TryOnDiffusion • Streamlit • Replicate")
