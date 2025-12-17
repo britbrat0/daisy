@@ -1,52 +1,81 @@
 import streamlit as st
 from PIL import Image
+import os
 import torch
 from diffusers import StableDiffusionPipeline
 
-# ---------------------
+# -------------------------------------------------
 # Page config
-# ---------------------
-st.set_page_config(page_title="Virtual Try-On", layout="wide")
+# -------------------------------------------------
+st.set_page_config(
+    page_title="Virtual Clothing Try-On",
+    layout="wide"
+)
 
-st.title("Virtual Clothing Try-On")
-st.write("Upload a clothing image and see it on a model.")
+st.title("👗 Virtual Clothing Try-On")
+st.write("Upload a clothing image and preview it on a stock model.")
 
-# ---------------------
+# -------------------------------------------------
+# Paths (Streamlit Cloud safe)
+# -------------------------------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+STOCK_MODEL_PATH = os.path.join(ASSETS_DIR, "stock_model.jpg")
+
+# -------------------------------------------------
+# Sidebar
+# -------------------------------------------------
+st.sidebar.header("Options")
+use_ai = st.sidebar.checkbox(
+    "Generate AI Try-On (slow, CPU-only)",
+    value=False,
+    help="Enable AI image generation (very slow without GPU)"
+)
+
+# -------------------------------------------------
 # File upload
-# ---------------------
-clothing_file = st.file_uploader("Upload Clothing Image", type=["png", "jpg", "jpeg"])
-model_file = st.file_uploader("Upload Model Image (optional)", type=["png", "jpg", "jpeg"])
+# -------------------------------------------------
+clothing_file = st.file_uploader(
+    "Upload Clothing Image",
+    type=["png", "jpg", "jpeg"]
+)
 
-# Load uploaded or stock model image
+model_file = st.file_uploader(
+    "Upload Model Image (optional)",
+    type=["png", "jpg", "jpeg"]
+)
+
+# -------------------------------------------------
+# Load model image
+# -------------------------------------------------
 if model_file:
     model_img = Image.open(model_file).convert("RGB")
 else:
-    model_img = Image.open("stock_model.jpg").convert("RGB")
+    if not os.path.exists(STOCK_MODEL_PATH):
+        st.error(
+            "❌ stock_model.jpg not found.\n\n"
+            "Make sure it exists at: assets/stock_model.jpg"
+        )
+        st.stop()
+    model_img = Image.open(STOCK_MODEL_PATH).convert("RGB")
 
-if clothing_file:
-    clothing_img = Image.open(clothing_file).convert("RGBA")
-    st.image(clothing_img, caption="Clothing Uploaded", use_column_width=True)
+# -------------------------------------------------
+# Display images
+# -------------------------------------------------
+col1, col2 = st.columns(2)
 
-st.image(model_img, caption="Model", use_column_width=True)
+with col1:
+    st.subheader("Model")
+    st.image(model_img, use_container_width=True)
 
-# ---------------------
-# Inference button
-# ---------------------
-if clothing_file and st.button("Generate Try-On"):
-    with st.spinner("Generating image..."):
-        # Load your try-on model (replace with TryOnDiffusion later)
-        pipe = StableDiffusionPipeline.from_pretrained(
-            "CompVis/stable-diffusion-v1-4",
-            torch_dtype=torch.float16
-        ).to("cuda")
+with col2:
+    st.subheader("Clothing")
+    if clothing_file:
+        clothing_img = Image.open(clothing_file).convert("RGBA")
+        st.image(clothing_img, use_container_width=True)
+    else:
+        st.info("Upload a clothing image to continue.")
 
-        # Simple prompt for demo
-        prompt = "A person wearing the uploaded clothing on a stock model"
-
-        # Convert clothing to RGB
-        clothing_img_rgb = clothing_img.convert("RGB")
-
-        # Generate image
-        result = pipe(prompt=prompt, image=clothing_img_rgb, num_inference_steps=25).images[0]
-
-        st.image(result, caption="Virtual Try-On Result", use_column_width=True)
+# -------------------------------------------------
+# Generate result
+# -----------------------------------------------
