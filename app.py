@@ -3,23 +3,17 @@ from PIL import Image
 import os
 import replicate
 
-# -------------------------------------------------
 # Page config
-# -------------------------------------------------
 st.set_page_config(page_title="Virtual Try-On", layout="wide")
-st.title("👗 Virtual Clothing Try-On")
+st.title("Virtual Clothing Try-On")
 
 st.write("Upload a clothing image and see it on a stock model.")
 
-# -------------------------------------------------
 # Paths
-# -------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, "assets", "models")
 
-# -------------------------------------------------
 # Load stock models
-# -------------------------------------------------
 if not os.path.exists(MODELS_DIR):
     st.error("❌ assets/models folder not found.")
     st.stop()
@@ -37,17 +31,13 @@ model_choice = st.selectbox("Choose a model", model_files)
 model_path = os.path.join(MODELS_DIR, model_choice)
 model_img = Image.open(model_path).convert("RGB")
 
-# -------------------------------------------------
 # Upload clothing
-# -------------------------------------------------
 clothing_file = st.file_uploader(
     "Upload Clothing Image",
     type=["png", "jpg", "jpeg"]
 )
 
-# -------------------------------------------------
 # Display inputs
-# -------------------------------------------------
 col1, col2 = st.columns(2)
 
 with col1:
@@ -62,9 +52,7 @@ with col2:
     else:
         st.info("Upload a clothing image to continue")
 
-# -------------------------------------------------
 # Generate Try-On
-# -------------------------------------------------
 if clothing_file and st.button("Generate Try-On"):
     with st.spinner("Running TryOnDiffusion (this may take ~30–60 seconds)..."):
         try:
@@ -87,8 +75,6 @@ if clothing_file and st.button("Generate Try-On"):
             st.error("❌ Try-on generation failed.")
             st.exception(e)
 
-# -------------------------------------------------
 # Footer
-# -------------------------------------------------
 st.markdown("---")
 st.caption("Powered by TryOnDiffusion • Streamlit • Replicate")
